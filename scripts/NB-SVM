@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu May 16 13:38:23 2019
+
+@author: kristen.anderson101gmail.com
+https://www.kaggle.com/jhoward/nb-svm-strong-linear-baseline
+"""
+import pandas as pd, numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+
+train = pd.read_csv('dev_toxicity.csv')
+test = pd.read_csv('test_toxicity.csv')
+#train = pd.read_csv('train_toxicity.csv', delimiter = ',')
+
+
+print(train.head())
+print(train['comment_text'][0])
+print(train['comment_text'][2])
+
+lens = train.comment_text.str.len()
+print(lens.mean(), lens.std(), lens.max())
+
+print(lens.hist())
+
+
+label_cols = ['severe_toxicity', 'identity_attack', 'insult', 'threat', 'toxicity_annotator_count']
+train['none'] = 1-train[label_cols].max(axis=1)
+train.describe()
+
+
+
+print(len(train),len(test))
+
+COMMENT = 'comment_text'
+train[COMMENT].fillna("unknown", inplace=True)
+test[COMMENT].fillna("unknown", inplace=True)
+
+import re, string
+re_tok = re.compile(f'([{string.punctuation}“”¨«»®´·º½¾¿¡§£₤‘’])')
+def tokenize(s): return re_tok.sub(r' \1 ', s).split()
+
+n = train.shape[0]
+vec = TfidfVectorizer(ngram_range=(1,2), tokenizer=tokenize,
+               min_df=3, max_df=0.9, strip_accents='unicode', use_idf=1,
+               smooth_idf=1, sublinear_tf=1 )
+trn_term_doc = vec.fit_transform(train[COMMENT])
+test_term_doc = vec.transform(test[COMMENT])
+
+trn_term_doc, test_term_doc
+
+def pr(y_i, y):
+    p = x[y==y_i].sum(0)
+    return (p+1) / ((y==y_i).sum()+1)
+
+x = trn_term_doc
+test_x = test_term_doc
+
+def get_mdl(y):
+    y = y.values
+    r = np.log(pr(1,y) / pr(0,y))
+    m = LogisticRegression(C=4, dual=True)
+    x_nb = x.multiply(r)
+    return m.fit(x_nb, y), r
+
+preds = np.zeros((len(test), len(label_cols)))
+
+for i, j in enumerate(label_cols):
+    m,r = get_mdl((train[j]*100).astype('int')) #
+    preds[:,i] = m.predict_proba(test_x.multiply(r))[:,1]
+
+print(preds)
