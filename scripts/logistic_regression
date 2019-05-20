@@ -5,8 +5,7 @@ Created on Thu May 16 13:53:23 2019
 
 @author: kristen.anderson101gmail.com
 https://www.kaggle.com/tunguz/logistic-regression-with-words-and-char-n-grams
-EDIT: after further research, I realized that while this was an option in the previous kaggle competition,
-it is no longer an option for us on account of the data set no longer being binary
+EDIT: in progress, adding accuracy
 """
 
 import numpy as np
