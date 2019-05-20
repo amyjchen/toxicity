@@ -5,6 +5,8 @@ Created on Thu May 16 13:38:23 2019
 
 @author: kristen.anderson101gmail.com
 https://www.kaggle.com/jhoward/nb-svm-strong-linear-baseline
+EDIT: after further research, realized that while this was an option in the previous kaggle competition,
+it is no longer an option for us on account of the data set no longer being binary
 """
 import pandas as pd, numpy as np
 from sklearn.linear_model import LogisticRegression
