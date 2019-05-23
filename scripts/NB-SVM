@@ -6,38 +6,37 @@ Created on Thu May 16 13:38:23 2019
 @author: kristen.anderson101gmail.com
 https://www.kaggle.com/jhoward/nb-svm-strong-linear-baseline
 """
+import re, string
 import pandas as pd, numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
-train = pd.read_csv('dev_toxicity.csv')
-test = pd.read_csv('test_toxicity.csv')
-#train = pd.read_csv('train_toxicity.csv', delimiter = ',')
+dev = pd.read_csv('int_dev.csv')
+test = pd.read_csv('int_test.csv')
+train = pd.read_csv('int_train.csv')
+subm = pd.read_csv('submission_nbsvm.csv')
 
-
-print(train.head())
-print(train['comment_text'][0])
-print(train['comment_text'][2])
+#print(train.head())
+#print(train['comment_text'][0])
+#print(train['comment_text'][2])
 
 lens = train.comment_text.str.len()
-print(lens.mean(), lens.std(), lens.max())
+#print(lens.mean(), lens.std(), lens.max())
 
-print(lens.hist())
+#print(lens.hist())
 
-
-label_cols = ['severe_toxicity', 'identity_attack', 'insult', 'threat', 'toxicity_annotator_count']
+label_cols = ['severe_toxicity', 'identity_attack', 'insult', 'threat']
 train['none'] = 1-train[label_cols].max(axis=1)
 train.describe()
 
+print('len comments: ', len(train),len(test))
 
-
-print(len(train),len(test))
 
 COMMENT = 'comment_text'
 train[COMMENT].fillna("unknown", inplace=True)
 test[COMMENT].fillna("unknown", inplace=True)
 
-import re, string
+
 re_tok = re.compile(f'([{string.punctuation}“”¨«»®´·º½¾¿¡§£₤‘’])')
 def tokenize(s): return re_tok.sub(r' \1 ', s).split()
 
@@ -48,7 +47,7 @@ vec = TfidfVectorizer(ngram_range=(1,2), tokenizer=tokenize,
 trn_term_doc = vec.fit_transform(train[COMMENT])
 test_term_doc = vec.transform(test[COMMENT])
 
-trn_term_doc, test_term_doc
+print('docs: ', trn_term_doc, test_term_doc)
 
 def pr(y_i, y):
     p = x[y==y_i].sum(0)
@@ -58,7 +57,7 @@ x = trn_term_doc
 test_x = test_term_doc
 
 def get_mdl(y):
-    y = y.values
+    y = np.where(y.values >= 0.5, 1, 0)
     r = np.log(pr(1,y) / pr(0,y))
     m = LogisticRegression(C=4, dual=True)
     x_nb = x.multiply(r)
@@ -67,7 +66,11 @@ def get_mdl(y):
 preds = np.zeros((len(test), len(label_cols)))
 
 for i, j in enumerate(label_cols):
-    m,r = get_mdl((train[j]*100).astype('int')) #
-    preds[:,i] = m.predict_proba(test_x.multiply(r))[:,1]
+    m,r = get_mdl(train[j]) #
+    preds[:,i] = m.predict_proba(test_x.multiply(r))[:,1] #maybe have to 0 or 1 too?
 
-print(preds)
+print("predictions: ", preds)
+
+submid = pd.DataFrame({'id': subm["id"]})
+submission = pd.concat([submid, pd.DataFrame(preds, columns = label_cols)], axis=1)
+submission.to_csv('submission_nbsvm.csv', index=False)
