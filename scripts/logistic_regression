@@ -5,9 +5,7 @@ Created on Thu May 16 13:53:23 2019
 
 @author: kristen.anderson101gmail.com
 https://www.kaggle.com/tunguz/logistic-regression-with-words-and-char-n-grams
-EDIT: in progress, adding accuracy
 """
-
 import numpy as np
 import pandas as pd
 
@@ -16,18 +14,16 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score
 from scipy.sparse import hstack
 
-class_names = ['severe_toxicity', 'identity_attack', 'insult', 'threat', 'toxicity_annotator_count']
+class_names = ['identity_attack', 'insult', 'threat'] #'severe_toxicity' causing issues b/c rounded to all 0s 
 
-train = pd.read_csv('dev_toxicity.csv').fillna(' ')
-#train = pd.read_csv('train_toxicity.csv').fillna(' ')
-test = pd.read_csv('test_toxicity.csv').fillna(' ')
-print('here 1')
+dev = pd.read_csv('int_dev.csv').fillna(' ')
+train = pd.read_csv('int_train.csv').fillna(' ')
+test = pd.read_csv('int_test.csv').fillna(' ')
 train_text = train['comment_text']
 print(train_text.head())
 test_text = test['comment_text']
 print(test_text.head())
 all_text = pd.concat([train_text, test_text])
-print('here 2')
 word_vectorizer = TfidfVectorizer(
     sublinear_tf=True,
     strip_accents='unicode',
@@ -39,7 +35,6 @@ word_vectorizer = TfidfVectorizer(
 word_vectorizer.fit(all_text)
 train_word_features = word_vectorizer.transform(train_text)
 test_word_features = word_vectorizer.transform(test_text)
-print('here 3')
 char_vectorizer = TfidfVectorizer(
     sublinear_tf=True,
     strip_accents='unicode',
@@ -48,28 +43,21 @@ char_vectorizer = TfidfVectorizer(
     ngram_range=(2, 6),
     max_features=50000)
 char_vectorizer.fit(all_text)
-train_char_features = char_vectorizer.transform(train_text)
+train_char_features = char_vectorizer.transform(train_text) #got here
 test_char_features = char_vectorizer.transform(test_text)
-print('here 4')
 train_features = hstack([train_char_features, train_word_features])
 test_features = hstack([test_char_features, test_word_features])
-print('here 5')
 scores = []
-#submission = pd.DataFrame.from_dict({'id': test[0]})
-print('here 6')
+submission = pd.DataFrame.from_dict({'id': test['id']})
 for class_name in class_names:
     train_target = train[class_name]
-    print('here 7')
     classifier = LogisticRegression(C=0.1, solver='sag')
-    print('here 8')
     cv_score = np.mean(cross_val_score(classifier, train_features, train_target, cv=3, scoring='roc_auc'))
-    print('here 9')
     scores.append(cv_score)
     print('CV score for class {} is {}'.format(class_name, cv_score))
-
     classifier.fit(train_features, train_target)
-    #submission[class_name] = classifier.predict_proba(test_features)[:, 1]
+    submission[class_name] = classifier.predict_proba(test_features)[:, 1]
 
 print('Total CV score is {}'.format(np.mean(scores)))
 
-submission.to_csv('submission.csv', index=False)
+submission.to_csv('submission_logistic.csv', index=False)
