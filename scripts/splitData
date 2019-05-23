@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed May 15 10:02:31 2019
+
+@author: kristen.anderson101gmail.com
+"""
+
+import sys
+import pandas as pd
+import numpy as np
+
+
+data_file = 'toxicity_only.csv'
+
+# Import CSV file
+data = pd.read_csv(data_file, delimiter = ',', encoding='latin-1') # Read csv file into DataFrame
+
+print(len(data)) # Print number of rows
+
+data = data.sample(frac=1).reset_index(drop=True) # Shuffle data to later split into training, validation, test sets
+fractions = np.array([0.9, 0.05, 0.05]) # Split into sets
+train, dev, test = np.array_split(data, (fractions[:-1].cumsum() * len(data)).astype(int))
+    
+print("The dataset has " + str(data.shape[0]) + " rows and " + str(data.shape[1]) + " columns.")
+#print(data.head())
+
+train.to_csv('train_toxicity.csv')
+dev.to_csv('dev_toxicity.csv')
+test.to_csv('test_toxicity.csv')
