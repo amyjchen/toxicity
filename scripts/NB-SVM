@@ -3,74 +3,108 @@
 """
 Created on Thu May 16 13:38:23 2019
 
+
 @author: kristen.anderson101gmail.com
-https://www.kaggle.com/jhoward/nb-svm-strong-linear-baseline
+http://andrewtrick.com/toxic_comments.html
 """
-import re, string
-import pandas as pd, numpy as np
-from sklearn.linear_model import LogisticRegression
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
-dev = pd.read_csv('int_dev.csv')
-test = pd.read_csv('int_test.csv')
-train = pd.read_csv('int_train.csv')
-subm = pd.read_csv('submission_nbsvm.csv')
+import pandas as pd
+import numpy as np
+import re
+import os
+from nltk.stem.porter import PorterStemmer
+from nltk.corpus import stopwords
+from sklearn.feature_extraction.text import CountVectorizer
+#from sklearn.cross_validation import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import FeatureUnion #unites all arrays into one array
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.linear_model import LogisticRegression 
+from sklearn.preprocessing import FunctionTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+# import
+df_test = pd.read_csv("test.csv")
+df_test_labs = pd.read_csv("test_labels.csv")
+df_train = pd.read_csv("train.csv")
+df_sub = pd.read_csv("sample_submission.csv")
 
-#print(train.head())
-#print(train['comment_text'][0])
-#print(train['comment_text'][2])
+#init corpus
+corpus = []
 
-lens = train.comment_text.str.len()
-#print(lens.mean(), lens.std(), lens.max())
+#loop through df and clean comments
+for i in range(0, 50000):
+    #reg_exp to replace anything not text to a space and drop to lower case
+    comment = re.sub('[^a-zA-Z]', ' ', df_train['comment_text'][i]).lower()
+    #split into list for processing
+    comment = comment.split()
+    #check for stopwords and remove
+    comment = [word for word in comment if not word in set(stopwords.words('english'))]
+    #stem the word!
+    ps = PorterStemmer()
+    comment = [str(ps.stem(word)) for word in comment]
+    #back to string
+    comment = ' '.join(comment)
+    corpus.append(comment)
+    #track progress
+    if i%1000 == 0:
+        print((float(i)/len(df_train))*100)
+        
 
-#print(lens.hist())
+#Bag of Words Model - sparse matrix (tokenize)
+#cv = CountVectorizer(max_features = 25000)   #max words to store 
+cv = TfidfVectorizer(
+    stop_words='english',
+    sublinear_tf=True,
+    strip_accents='unicode',
+    analyzer='word',
+    token_pattern=r'\w{2,}',  #vectorize 2-character words or more
+    ngram_range=(1, 1),
+    max_features=30000)
+X = cv.fit_transform(corpus).toarray()
+y_tox = df_train.iloc[0:50000,2].values
+y_sev_tox = df_train.iloc[0:50000,3].values
+y_obs = df_train.iloc[0:50000,4].values
+y_threat = df_train.iloc[0:50000,5].values
+y_insult = df_train.iloc[0:50000,6].values
+y_hate = df_train.iloc[0:50000,7].values
 
-label_cols = ['severe_toxicity', 'identity_attack', 'insult', 'threat']
-train['none'] = 1-train[label_cols].max(axis=1)
-train.describe()
 
-print('len comments: ', len(train),len(test))
+#model for each predicted type
+tests = {'y_tox' : y_tox, 
+         'y_sev_tox' : y_sev_tox, 
+         'y_obs' : y_obs, 
+         'y_threat' : y_threat, 
+         'y_insult' : y_insult, 
+         'y_hate' : y_hate}
 
+models = {'y_tox' : GaussianNB(), 
+          'y_sev_tox' : GaussianNB(),
+          'y_obs' : GaussianNB(),
+          'y_threat' : GaussianNB(),
+          'y_insult' : GaussianNB(),
+          'y_hate' : GaussianNB()}
 
-COMMENT = 'comment_text'
-train[COMMENT].fillna("unknown", inplace=True)
-test[COMMENT].fillna("unknown", inplace=True)
+preds = {}
 
+test_names = ['y_tox', 'y_sev_tox', 'y_obs', 'y_threat', 'y_insult', 'y_hate']
 
-re_tok = re.compile(f'([{string.punctuation}“”¨«»®´·º½¾¿¡§£₤‘’])')
-def tokenize(s): return re_tok.sub(r' \1 ', s).split()
+for i in test_names:
+    #test_train split (toxic)
+    X_train, X_test, y_train, y_test = train_test_split(X, tests[i], test_size = 0.05, random_state = 42)
+    
+    #Train Model (naive bayes)
+    models[i].fit(X_train, y_train)
 
-n = train.shape[0]
-vec = TfidfVectorizer(ngram_range=(1,2), tokenizer=tokenize,
-               min_df=3, max_df=0.9, strip_accents='unicode', use_idf=1,
-               smooth_idf=1, sublinear_tf=1 )
-trn_term_doc = vec.fit_transform(train[COMMENT])
-test_term_doc = vec.transform(test[COMMENT])
-
-print('docs: ', trn_term_doc, test_term_doc)
-
-def pr(y_i, y):
-    p = x[y==y_i].sum(0)
-    return (p+1) / ((y==y_i).sum()+1)
-
-x = trn_term_doc
-test_x = test_term_doc
-
-def get_mdl(y):
-    y = np.where(y.values >= 0.5, 1, 0)
-    r = np.log(pr(1,y) / pr(0,y))
-    m = LogisticRegression(C=4, dual=True)
-    x_nb = x.multiply(r)
-    return m.fit(x_nb, y), r
-
-preds = np.zeros((len(test), len(label_cols)))
-
-for i, j in enumerate(label_cols):
-    m,r = get_mdl(train[j]) #
-    preds[:,i] = m.predict_proba(test_x.multiply(r))[:,1] #maybe have to 0 or 1 too?
-
-print("predictions: ", preds)
-
-submid = pd.DataFrame({'id': subm["id"]})
-submission = pd.concat([submid, pd.DataFrame(preds, columns = label_cols)], axis=1)
-submission.to_csv('submission_nbsvm.csv', index=False)
+    #predict
+    preds[i] = models[i].predict(X_test)
+    
+    #review model
+    print(i)
+    print(confusion_matrix(y_test, preds[i]))
+    print(accuracy_score(y_test, preds[i]))
