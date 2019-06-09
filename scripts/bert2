@@ -5,7 +5,6 @@ Created on Wed May 15 17:07:42 2019
 
 @author: kristen.anderson101gmail.com
 https://www.kaggle.com/javaidnabi/toxic-comment-classification-using-bert
-IN PROGRESS
 """
 
 #import numpy as np # linear algebra
