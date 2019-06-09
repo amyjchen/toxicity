@@ -4,6 +4,7 @@
 Created on Tue May 28 13:21:03 2019
 
 @author: kristen.anderson101gmail.com
+https://www.kaggle.com/adamschroeder/countvectorizer-tfidfvectorizer-predict-comments
 """
 
 import pandas as pd
