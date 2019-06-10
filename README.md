@@ -1,4 +1,5 @@
-# NLP Toxicity Classifier (WIP: CS 230 Project)
+# NLP Toxicity Classifier (CS 230 Project)
+Amy Chen, Farzaan Kaiyom, Kristen Anderson
 Spring 2019
 
 Data is from https://www.kaggle.com/c/jigsaw-unintended-bias-in-toxicity-classification/data
